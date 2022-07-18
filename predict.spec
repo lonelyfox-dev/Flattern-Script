@@ -8,13 +8,8 @@ a = Analysis(
     ['predict.py'],
     pathex=[],
     binaries=[],
-    datas=[('model/flattern_model_tree.pkl', '.'), ('model/AirspaceData_SSRoute.csv', '.')],
-    hiddenimports=[
-        'sklearn.pipeline',
-        'sklearn.compose',
-        'sklearn.utils._typedefs',
-        'sklearn.neighbors._partition_nodes'
-    ],
+    datas=[('model/flattern_model_pac.pkl', '.'), ('model/AirspaceData_SSRoute.csv', '.')],
+    hiddenimports=['sklearn.pipeline', 'sklearn.compose'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

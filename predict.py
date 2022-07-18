@@ -16,7 +16,7 @@ import dill
 )
 def main(path):
     """
-    Predict flight procedure types from csv data in PATH using trained decision tree model
+    Predict flight procedure types from csv data in PATH using trained PAC model
     """
 
     pd.options.mode.chained_assignment = None
@@ -32,7 +32,7 @@ def main(path):
         else:
             raise FileNotFoundError('Unable to resolve application path.')
 
-        model_path = os.path.join(application_path, 'flattern_model_tree.pkl')
+        model_path = os.path.join(application_path, 'flattern_model_pac.pkl')
         with open(model_path, 'rb') as model_file:
             model_pkg = dill.load(model_file)
             model = model_pkg['model']
