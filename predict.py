@@ -1,5 +1,6 @@
 import os
 import sys
+from datetime import datetime
 
 import click
 import pandas as pd
@@ -12,9 +13,17 @@ import dill
     '-p',
     required=True,
     type=click.Path(exists=True, dir_okay=False),
-    help='Path to csv file with data to make predictions from'
+    help='Path to csv file with data to make predictions from.'
 )
-def main(path):
+@click.option(
+    '--batch/--batch-nocache',
+    default=None,
+    help="""
+        Use this flag if your path is a csv file with batch of online learning data for the model.
+        Automatically caches previous model. Use --batch-nocache to disable this feature.
+    """
+)
+def main(path, batch):
     """
     Predict flight procedure types from csv data in PATH using trained PAC model
     """
@@ -42,6 +51,35 @@ def main(path):
         print(f'Something went wrong while recovering model. Error message: {e}')
         return 1
 
+    if batch is not None:
+        batch_X = data.drop(columns=['ProcedureType'])
+        batch_y = le.transform(data['ProcedureType'])
+
+        batch_X = model.named_steps['prep_dropna'].transform(batch_X)
+        batch_X = model.named_steps['prep_drop_idx_cols'].transform(batch_X)
+        batch_X = model.named_steps['scaler'].transform(batch_X)
+
+        new_model = model.named_steps['pac'].partial_fit(batch_X, batch_y)
+        model_pkg['model'].named_steps['pac'] = new_model
+
+        if batch:
+            cache_path = f'{application_path}/flattern_cache/model_{datetime.now().strftime("%Y%m%d%H%M")}.pkl'
+            os.makedirs(f'{application_path}/flattern_cache', exist_ok=True)
+
+            os.replace(model_path, cache_path)
+
+        model_pkg['metadata']['date'] = datetime.now()
+        with open(model_path, 'wb') as model_file:
+            dill.dump(
+                {
+                    'model': model_pkg['model'],
+                    'label_encoder': le,
+                    'metadata': model_pkg['metadata']
+                }, model_file
+            )
+
+        return 0
+
     try:
         index_columns = ['CatalogStId', 'SidStarID', 'Number', 'RouteL']
         res = data.dropna()[index_columns]
@@ -68,9 +106,9 @@ def main(path):
         preds.loc[preds.ProcedureType == 'veer', 'RouteL'] -= 1
 
         point_preds = preds.loc[preds.index.repeat(preds.RouteL)].drop(columns=['CatalogStId'])
-        increment = point_preds.groupby(['SidStarID', 'Number']).cumcount()
+        increment = point_preds.groupby(['SidStarID', 'Number', 'RouteL']).cumcount()
         point_preds.loc[:, 'Number'] += increment
-        point_preds = point_preds.drop(columns=['RouteL']).set_index(['SidStarID', 'Number'])
+        point_preds = point_preds.set_index(['SidStarID', 'Number'])
 
         procedure_type_mapper = {
             'veer': 1,
